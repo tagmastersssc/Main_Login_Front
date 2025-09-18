@@ -4,8 +4,6 @@ import InputField from "./components/InputField";
 import { login, register } from "./api/auth";
 import logo from "/bilailogocompleto.png";
 
-//const logo1 = new URL("./assets/bilailogocompleto.png", import.meta.url).href;
-
 const initialLoginState = { email: "", password: "" };
 const initialRegisterState = { email: "", password: "", confirmPassword: "" };
 
