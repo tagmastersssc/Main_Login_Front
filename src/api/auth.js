@@ -18,29 +18,34 @@ export async function login(email, password) {
   return handleResponse(response);
 }
 
-export async function register(email, password) {
+export async function register({ email, password, firstName, lastName }) {
   const response = await fetch(`${API_URL}/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({
+      email,
+      password,
+      first_name: firstName,
+      last_name: lastName,
+    }),
   });
   return handleResponse(response);
 }
 
-export async function forgotPassword(email) {
-  const res = await fetch(`${API_URL}/forgot-password`, {
+export async function requestPasswordReset(email) {
+  const response = await fetch(`${API_URL}/forgot-password`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
   });
-  return res.json(); // { reset_token: "..." }
+  return handleResponse(response);
 }
 
-export async function resetPassword(token, newPassword) {
-  const res = await fetch(`${API_URL}/reset-password`, {
+export async function resetPassword(code, newPassword) {
+  const response = await fetch(`${API_URL}/reset-password`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token, new_password: newPassword }),
+    body: JSON.stringify({ code, new_password: newPassword }),
   });
-  return res.json();
+  return handleResponse(response);
 }
