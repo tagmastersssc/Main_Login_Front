@@ -9,13 +9,17 @@ const InputField = ({
   autoComplete,
   error,
   name,
+  trailingContent,
   ...rest
 }) => {
   const [isPasswordShown, setIsPasswordShown] = useState(false);
   const inputType = type === "password" && isPasswordShown ? "text" : type;
+  const hasTrailing = Boolean(trailingContent);
 
   return (
-    <div className={`input-wrapper${error ? " has-error" : ""}`}>
+    <div
+      className={`input-wrapper${error ? " has-error" : ""}${hasTrailing ? " has-trailing" : ""}`}
+    >
       <input
         type={inputType}
         placeholder={placeholder}
@@ -46,6 +50,7 @@ const InputField = ({
           {isPasswordShown ? "visibility" : "visibility_off"}
         </i>
       )}
+      {hasTrailing && <div className="input-trailing">{trailingContent}</div>}
       {error && (
         <p className="input-error" id={`${name}-error`}>
           {error}

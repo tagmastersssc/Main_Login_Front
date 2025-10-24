@@ -6,6 +6,7 @@ import {
   register,
   requestPasswordReset,
   resetPassword,
+  findClientByTaxId,
 } from "./api/auth";
 import logo from "/bilailogocompleto.png";
 import logonegativo from "/bilailogocompletonegativo.png";
@@ -19,6 +20,8 @@ const VIEWS = {
   REGISTER_SALE_MENU: "register-sale",
   ELECTRONIC_INVOICE: "electronic-invoice",
   GENERIC_INVOICE: "generic-invoice",
+  SALES: "sales",
+  INVENTORY: "inventory",
   DASHBOARDS: "dashboards",
   CLIENTS: "clients",
   TRANSACTIONS: "transactions",
@@ -28,6 +31,8 @@ const VIEWS = {
 
 const NAV_ITEMS = [
   { label: "Inicio", icon: "home", view: VIEWS.HOME },
+  { label: "Ventas", icon: "insights", view: VIEWS.SALES },
+  { label: "Inventario", icon: "inventory_2", view: VIEWS.INVENTORY },
   { label: "Dashboards", icon: "query_stats", view: VIEWS.DASHBOARDS },
   { label: "Clientes", icon: "group", view: VIEWS.CLIENTS },
   { label: "Transacciones", icon: "receipt_long", view: VIEWS.TRANSACTIONS },
@@ -71,6 +76,14 @@ const VIEW_META = {
   [VIEWS.GENERIC_INVOICE]: {
     title: "Factura genérica",
     description: "Registra ventas rápidas con los datos esenciales.",
+  },
+  [VIEWS.SALES]: {
+    title: "Ventas",
+    description: "Consulta el rendimiento comercial y detecta oportunidades de crecimiento.",
+  },
+  [VIEWS.INVENTORY]: {
+    title: "Inventario",
+    description: "Visualiza existencias, rotación y alertas en un solo lugar.",
   },
 };
 
@@ -148,6 +161,170 @@ const getInitial = (name, fallback) => {
   }
   return "U";
 };
+
+const generateRowId = () => `${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+
+const createProductRow = (includeTaxType = false) => ({
+  id: generateRowId(),
+  product: "",
+  quantity: "",
+  price: "",
+  taxType: includeTaxType ? "" : "",
+});
+
+const validateProductRows = (products, { requireTaxType = false } = {}) => {
+  const rowErrors = products.map(() => ({}));
+  let hasErrors = false;
+
+  products.forEach((item, index) => {
+    const currentErrors = rowErrors[index];
+    const productName = (item.product ?? "").trim();
+    if (!productName) {
+      currentErrors.product = "Describe el producto.";
+      hasErrors = true;
+    }
+
+    const quantityRaw = item.quantity ?? "";
+    const quantityValue = Number(quantityRaw);
+    if (!quantityRaw) {
+      currentErrors.quantity = "Indica la cantidad.";
+      hasErrors = true;
+    } else if (Number.isNaN(quantityValue) || quantityValue <= 0) {
+      currentErrors.quantity = "La cantidad debe ser mayor a cero.";
+      hasErrors = true;
+    }
+
+    const priceRaw = item.price ?? "";
+    const priceValue = Number(priceRaw);
+    if (!priceRaw) {
+      currentErrors.price = "Indica el precio.";
+      hasErrors = true;
+    } else if (Number.isNaN(priceValue) || priceValue <= 0) {
+      currentErrors.price = "El precio debe ser mayor a cero.";
+      hasErrors = true;
+    }
+
+    if (requireTaxType && !item.taxType) {
+      currentErrors.taxType = "Selecciona el impuesto.";
+      hasErrors = true;
+    }
+  });
+
+  return { errors: rowErrors, hasErrors };
+};
+
+const InvoiceProductsTable = ({
+  products,
+  errors = [],
+  includeTaxType,
+  onProductChange,
+  onAddProduct,
+  onRemoveProduct,
+}) => (
+  <div className="invoice-table-wrapper">
+    <table className="invoice-table">
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th>Cantidad</th>
+          <th>Precio</th>
+          {includeTaxType && <th>Impuesto</th>}
+          <th className="table-actions-header">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {products.map((item, index) => {
+          const rowErrors = errors[index] || {};
+          return (
+            <tr key={item.id}>
+              <td>
+                <div className={`table-input-wrapper${rowErrors.product ? " has-error" : ""}`}>
+                  <input
+                    type="text"
+                    className="table-input"
+                    placeholder="Descripción del producto"
+                    value={item.product}
+                    onChange={(event) => onProductChange(index, "product", event.target.value)}
+                    autoComplete="off"
+                  />
+                  {rowErrors.product && <p className="input-error">{rowErrors.product}</p>}
+                </div>
+              </td>
+              <td>
+                <div className={`table-input-wrapper${rowErrors.quantity ? " has-error" : ""}`}>
+                  <input
+                    type="number"
+                    className="table-input"
+                    placeholder="0"
+                    value={item.quantity}
+                    onChange={(event) => onProductChange(index, "quantity", event.target.value)}
+                    min="0"
+                    step="1"
+                    inputMode="numeric"
+                  />
+                  {rowErrors.quantity && <p className="input-error">{rowErrors.quantity}</p>}
+                </div>
+              </td>
+              <td>
+                <div className={`table-input-wrapper${rowErrors.price ? " has-error" : ""}`}>
+                  <input
+                    type="number"
+                    className="table-input"
+                    placeholder="0.00"
+                    value={item.price}
+                    onChange={(event) => onProductChange(index, "price", event.target.value)}
+                    min="0"
+                    step="0.01"
+                    inputMode="decimal"
+                  />
+                  {rowErrors.price && <p className="input-error">{rowErrors.price}</p>}
+                </div>
+              </td>
+              {includeTaxType && (
+                <td>
+                  <div className={`table-input-wrapper select${rowErrors.taxType ? " has-error" : ""}`}>
+                    <select
+                      className="table-input"
+                      value={item.taxType}
+                      onChange={(event) => onProductChange(index, "taxType", event.target.value)}
+                    >
+                      <option value="">Tipo de impuesto</option>
+                      <option value="iva19">IVA 19%</option>
+                      <option value="iva5">IVA 5%</option>
+                      <option value="exento">Exento</option>
+                    </select>
+                    {rowErrors.taxType && <p className="input-error">{rowErrors.taxType}</p>}
+                  </div>
+                </td>
+              )}
+              <td className="table-actions">
+                {products.length > 1 && (
+                  <button
+                    type="button"
+                    className="table-remove-button"
+                    onClick={() => onRemoveProduct(index)}
+                    aria-label={`Eliminar producto ${index + 1}`}
+                    title="Eliminar fila"
+                  >
+                    <span className="material-symbols-rounded" aria-hidden="true">
+                      delete
+                    </span>
+                  </button>
+                )}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+    <button type="button" className="table-add-button" onClick={onAddProduct}>
+      <span className="material-symbols-rounded" aria-hidden="true">
+        add
+      </span>
+      Agregar producto
+    </button>
+  </div>
+);
 
 const OneTimeCodeInput = ({ value, onChange, error }) => {
   const safeValue = (value ?? "").replace(/\D/g, "").slice(0, CODE_LENGTH);
@@ -724,6 +901,280 @@ const HomeView = ({ onRegisterSale, onViewSales, onInventory, feedback }) => (
   </section>
 );
 
+const SalesView = () => {
+  const sales = [
+    {
+      id: "FE-2045",
+      client: "Innovar S.A.",
+      status: "Pagada",
+      amount: "$12,450",
+      channel: "E-commerce",
+      date: "Hoy, 10:24",
+    },
+    {
+      id: "FE-2044",
+      client: "Nova Retail",
+      status: "Pendiente",
+      amount: "$8,910",
+      channel: "Punto de venta",
+      date: "Hoy, 09:02",
+    },
+    {
+      id: "FG-1038",
+      client: "Bazar 24",
+      status: "Pagada",
+      amount: "$3,760",
+      channel: "Marketplace",
+      date: "Ayer, 17:48",
+    },
+    {
+      id: "FE-2043",
+      client: "LogiMax",
+      status: "En revisión",
+      amount: "$15,320",
+      channel: "Facturación electrónica",
+      date: "Ayer, 15:10",
+    },
+  ];
+
+  return (
+    <section className="sales-view" aria-labelledby="sales-heading">
+      <div className="view-header">
+        <div>
+          <p className="section-kicker">Crecimiento continuo</p>
+          <h2 id="sales-heading">Tus ventas al detalle</h2>
+          <p>Analiza el pulso comercial, detecta clientes clave y anticipa nuevas oportunidades.</p>
+        </div>
+        <div className="view-header-actions">
+          <button type="button" className="ghost-button">
+            <span className="material-symbols-rounded">calendar_today</span>
+            Últimos 7 días
+          </button>
+          <button type="button" className="primary-button">
+            <span className="material-symbols-rounded">file_download</span>
+            Exportar detalle
+          </button>
+        </div>
+      </div>
+      <div className="sales-highlights">
+        <article className="highlight-card">
+          <h3>$38,940</h3>
+          <p>Ingresos en la última semana</p>
+          <span className="trend-chip trend-chip--positive">
+            <span className="material-symbols-rounded">trending_up</span>
+            +18% vs. periodo anterior
+          </span>
+        </article>
+        <article className="highlight-card">
+          <h3>74</h3>
+          <p>Facturas emitidas</p>
+          <span className="trend-chip trend-chip--neutral">
+            <span className="material-symbols-rounded">swap_vert</span>
+            Ritmo constante
+          </span>
+        </article>
+        <article className="highlight-card">
+          <h3>$525</h3>
+          <p>Ticket promedio</p>
+          <span className="trend-chip trend-chip--positive">
+            <span className="material-symbols-rounded">military_tech</span>
+            Mejora sostenida
+          </span>
+        </article>
+      </div>
+      <div className="sales-table" role="table" aria-label="Resumen de ventas recientes">
+        <div className="sales-table-head" role="row">
+          <span role="columnheader">Factura</span>
+          <span role="columnheader">Cliente</span>
+          <span role="columnheader">Canal</span>
+          <span role="columnheader">Estado</span>
+          <span role="columnheader" className="text-right">
+            Total
+          </span>
+          <span role="columnheader" className="text-right">
+            Fecha
+          </span>
+        </div>
+        {sales.map((sale) => {
+          const statusClass =
+            sale.status === "Pagada"
+              ? "status-pill--success"
+              : sale.status === "Pendiente"
+              ? "status-pill--warning"
+              : "status-pill--info";
+          const statusIcon =
+            sale.status === "Pagada"
+              ? "task_alt"
+              : sale.status === "Pendiente"
+              ? "schedule"
+              : "info";
+
+          return (
+            <div className="sales-table-row" role="row" key={sale.id}>
+              <span role="cell" className="sales-id">
+                {sale.id}
+              </span>
+              <span role="cell">{sale.client}</span>
+              <span role="cell">{sale.channel}</span>
+              <span role="cell">
+                <span className={`status-pill ${statusClass}`}>
+                  <span className="material-symbols-rounded">{statusIcon}</span>
+                  {sale.status}
+                </span>
+              </span>
+              <span role="cell" className="text-right">
+                {sale.amount}
+              </span>
+              <span role="cell" className="text-right">
+                {sale.date}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
+
+const InventoryView = () => {
+  const inventory = [
+    {
+      sku: "SKU-9042",
+      name: "Chaqueta niña",
+      category: "Ropa Nacional",
+      stock: 24,
+      status: "En stock",
+      reorderPoint: 12,
+    },
+    {
+      sku: "SKU-7011",
+      name: "Vestido Importado",
+      category: "Ropa Importada",
+      stock: 8,
+      status: "Stock bajo",
+      reorderPoint: 10,
+    },
+    {
+      sku: "SKU-5403",
+      name: "Conjuntos Importados",
+      category: "Ropa Importada",
+      stock: 0,
+      status: "Agotado",
+      reorderPoint: 6,
+    },
+    {
+      sku: "SKU-3120",
+      name: "Collares",
+      category: "Accesorios",
+      stock: 42,
+      status: "En stock",
+      reorderPoint: 15,
+    },
+  ];
+
+  return (
+    <section className="inventory-view" aria-labelledby="inventory-heading">
+      <div className="view-header">
+        <div>
+          <p className="section-kicker">Operación precisa</p>
+          <h2 id="inventory-heading">Inventario bajo control</h2>
+          <p>Mantén visibilidad total, anticipa quiebres de stock y optimiza tus reposiciones.</p>
+        </div>
+        <div className="view-header-actions">
+          <button type="button" className="ghost-button">
+            <span className="material-symbols-rounded">add</span>
+            Nuevo producto
+          </button>
+          <button type="button" className="ghost-button">
+            <span className="material-symbols-rounded">qr_code_scanner</span>
+            Entrada rápida
+          </button>
+        </div>
+      </div>
+      <div className="inventory-highlights">
+        <article className="highlight-card highlight-card--dense">
+          <h3>74%</h3>
+          <p>Ítems dentro del stock óptimo</p>
+          <span className="trend-chip trend-chip--positive">
+            <span className="material-symbols-rounded">verified</span>
+            Saludable
+          </span>
+        </article>
+        <article className="highlight-card highlight-card--dense">
+          <h3>8</h3>
+          <p>Productos con stock bajo</p>
+          <span className="trend-chip trend-chip--warning">
+            <span className="material-symbols-rounded">warning</span>
+            Reponer pronto
+          </span>
+        </article>
+        <article className="highlight-card highlight-card--dense">
+          <h3>3</h3>
+          <p>Ítems agotados</p>
+          <span className="trend-chip trend-chip--info">
+            <span className="material-symbols-rounded">notifications_active</span>
+            Alerta enviada
+          </span>
+        </article>
+      </div>
+      <div className="inventory-table" role="table" aria-label="Resumen de inventario">
+        <div className="inventory-table-head" role="row">
+          <span role="columnheader">Producto</span>
+          <span role="columnheader">Categoría</span>
+          <span role="columnheader" className="text-right">
+            Stock actual
+          </span>
+          <span role="columnheader">Estado</span>
+          <span role="columnheader" className="text-right">
+            Punto de pedido
+          </span>
+        </div>
+        {inventory.map((item) => {
+          const statusClass =
+            item.status === "En stock"
+              ? "status-pill--success"
+              : item.status === "Stock bajo"
+              ? "status-pill--warning"
+              : "status-pill--danger";
+          const statusIcon =
+            item.status === "En stock"
+              ? "task_alt"
+              : item.status === "Stock bajo"
+              ? "error"
+              : "report";
+
+          return (
+            <div className="inventory-table-row" role="row" key={item.sku}>
+              <div role="cell" className="inventory-product">
+                <span className="inventory-avatar" aria-hidden="true">
+                  {item.name.charAt(0)}
+                </span>
+                <div>
+                  <strong>{item.name}</strong>
+                  <p>{item.sku}</p>
+                </div>
+              </div>
+              <span role="cell">{item.category}</span>
+              <span role="cell" className="text-right">
+                {item.stock}
+              </span>
+              <span role="cell">
+                <span className={`status-pill ${statusClass}`}>
+                  <span className="material-symbols-rounded">{statusIcon}</span>
+                  {item.status}
+                </span>
+              </span>
+              <span role="cell" className="text-right">
+                {item.reorderPoint}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
+
 const DashboardsView = () => (
   <section className="dashboards-view" aria-labelledby="dashboards-heading">
     <div className="view-header">
@@ -983,68 +1434,120 @@ const ElectronicInvoiceForm = ({ onBack, onSubmit }) => {
     customerName: "",
     taxId: "",
     customerEmail: "",
-    product: "",
-    quantity: "",
-    price: "",
-    taxType: "",
   });
   const [errors, setErrors] = useState({});
+  const [products, setProducts] = useState([createProductRow(true)]);
+  const [productErrors, setProductErrors] = useState([{}]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSearchingCustomer, setIsSearchingCustomer] = useState(false);
+  const [lookupStatus, setLookupStatus] = useState("idle");
+  const [lookupMessage, setLookupMessage] = useState("");
 
-  const handleChange = (event) => {
+  const handleCustomerChange = (event) => {
     const { name, value } = event.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     setErrors((prev) => ({ ...prev, [name]: "" }));
+    if (name === "taxId") {
+      setLookupStatus("idle");
+      setLookupMessage("");
+    }
+  };
+
+  const handleProductChange = (index, field, value) => {
+    setProducts((prev) =>
+      prev.map((item, rowIndex) => (rowIndex === index ? { ...item, [field]: value } : item))
+    );
+    setProductErrors((prev) =>
+      prev.map((rowError, rowIndex) =>
+        rowIndex === index ? { ...rowError, [field]: "" } : rowError
+      )
+    );
+  };
+
+  const addProductRow = () => {
+    setProducts((prev) => [...prev, createProductRow(true)]);
+    setProductErrors((prev) => [...prev, {}]);
+  };
+
+  const removeProductRow = (index) => {
+    if (products.length === 1) {
+      return;
+    }
+    setProducts((prev) => prev.filter((_, rowIndex) => rowIndex !== index));
+    setProductErrors((prev) => prev.filter((_, rowIndex) => rowIndex !== index));
+  };
+
+  const handleSearchCustomer = async () => {
+    const trimmed = formData.taxId.trim();
+    if (!trimmed) {
+      setErrors((prev) => ({ ...prev, taxId: "Ingresa la cédula o NIT." }));
+      return;
+    }
+    setIsSearchingCustomer(true);
+    setLookupStatus("idle");
+    setLookupMessage("");
+    try {
+      const data = await findClientByTaxId(trimmed);
+      setFormData((prev) => ({
+        ...prev,
+        customerName: data.name || "",
+        customerEmail: data.email || "",
+      }));
+      setErrors((prev) => ({ ...prev, taxId: "", customerName: "", customerEmail: "" }));
+      setLookupStatus("success");
+      setLookupMessage("Cliente encontrado y completado automáticamente.");
+    } catch (error) {
+      setLookupStatus("error");
+      setLookupMessage(error.message);
+    } finally {
+      setIsSearchingCustomer(false);
+    }
   };
 
   const handleSubmit = (event) => {
     event.preventDefault();
     const newErrors = {};
+    const trimmedName = formData.customerName.trim();
+    const trimmedTaxId = formData.taxId.trim();
+    const trimmedEmail = formData.customerEmail.trim();
 
-    if (!formData.customerName.trim()) {
-      newErrors.customerName = "Ingresa el nombre del cliente.";
-    }
-    if (!formData.taxId.trim()) {
+    if (!trimmedTaxId) {
       newErrors.taxId = "Ingresa la cédula o NIT.";
     }
-    if (!formData.customerEmail.trim()) {
+    if (!trimmedName) {
+      newErrors.customerName = "Ingresa el nombre del cliente.";
+    }
+    if (!trimmedEmail) {
       newErrors.customerEmail = "El correo del cliente es obligatorio.";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.customerEmail)) {
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
       newErrors.customerEmail = "Ingresa un correo válido.";
     }
-    if (!formData.product.trim()) {
-      newErrors.product = "Describe el producto.";
-    }
 
-    const quantityValue = Number(formData.quantity);
-    if (!formData.quantity) {
-      newErrors.quantity = "Indica la cantidad.";
-    } else if (Number.isNaN(quantityValue) || quantityValue <= 0) {
-      newErrors.quantity = "La cantidad debe ser mayor a cero.";
-    }
+    const { errors: rowErrors, hasErrors } = validateProductRows(products, {
+      requireTaxType: true,
+    });
 
-    const priceValue = Number(formData.price);
-    if (!formData.price) {
-      newErrors.price = "Indica el precio unitario.";
-    } else if (Number.isNaN(priceValue) || priceValue <= 0) {
-      newErrors.price = "El precio debe ser mayor a cero.";
-    }
+    setProductErrors(rowErrors);
 
-    if (!formData.taxType) {
-      newErrors.taxType = "Selecciona el tipo de impuesto.";
-    }
-
-    if (Object.keys(newErrors).length) {
+    if (Object.keys(newErrors).length || hasErrors) {
       setErrors(newErrors);
       return;
     }
 
+    setErrors({});
     setIsSubmitting(true);
     setTimeout(() => {
       onSubmit();
       setIsSubmitting(false);
     }, 550);
   };
+
+  const lookupClassName =
+    lookupStatus === "success"
+      ? "lookup-feedback success"
+      : lookupStatus === "error"
+      ? "lookup-feedback error"
+      : "lookup-feedback";
 
   return (
     <section className="workflow-container" aria-labelledby="electronic-invoice-heading">
@@ -1062,91 +1565,68 @@ const ElectronicInvoiceForm = ({ onBack, onSubmit }) => {
         </p>
       </header>
       <form className="invoice-form" onSubmit={handleSubmit} noValidate>
-        <div className="invoice-grid">
-          <InputField
-            type="text"
-            placeholder="Nombre del cliente"
-            icon="person"
-            value={formData.customerName}
-            onChange={handleChange}
-            name="customerName"
-            error={errors.customerName}
-            autoComplete="name"
-          />
+        <div className="invoice-section">
+          <h3 className="invoice-section-title">Datos del cliente</h3>
+          <p className="invoice-section-subtitle">
+            Busca al cliente por su documento o actualiza la información manualmente.
+          </p>
           <InputField
             type="text"
             placeholder="Cédula o NIT"
             icon="badge"
             value={formData.taxId}
-            onChange={handleChange}
+            onChange={handleCustomerChange}
             name="taxId"
             error={errors.taxId}
             autoComplete="off"
+            trailingContent={
+              <button
+                type="button"
+                className="inline-button"
+                onClick={handleSearchCustomer}
+                disabled={isSearchingCustomer || !formData.taxId.trim()}
+              >
+                {isSearchingCustomer ? "Buscando..." : "Buscar"}
+              </button>
+            }
           />
-          <InputField
-            type="email"
-            placeholder="Correo del cliente"
-            icon="mail"
-            value={formData.customerEmail}
-            onChange={handleChange}
-            name="customerEmail"
-            error={errors.customerEmail}
-            autoComplete="email"
-          />
-          <InputField
-            type="text"
-            placeholder="Producto"
-            icon="shopping_bag"
-            value={formData.product}
-            onChange={handleChange}
-            name="product"
-            error={errors.product}
-            autoComplete="off"
-          />
-          <InputField
-            type="number"
-            placeholder="Cantidad"
-            icon="format_list_numbered"
-            value={formData.quantity}
-            onChange={handleChange}
-            name="quantity"
-            error={errors.quantity}
-            min="0"
-            step="1"
-            inputMode="numeric"
-          />
-          <InputField
-            type="number"
-            placeholder="Precio"
-            icon="attach_money"
-            value={formData.price}
-            onChange={handleChange}
-            name="price"
-            error={errors.price}
-            min="0"
-            step="0.01"
-            inputMode="decimal"
-          />
-          <div className={`input-wrapper select${errors.taxType ? " has-error" : ""}`}>
-            <select
-              className="input-field"
-              value={formData.taxType}
-              onChange={handleChange}
-              name="taxType"
-              aria-invalid={Boolean(errors.taxType)}
-            >
-              <option value="">Tipo de impuesto</option>
-              <option value="iva19">IVA 19%</option>
-              <option value="iva5">IVA 5%</option>
-              <option value="exento">Exento</option>
-            </select>
-            <i className="material-symbols-rounded">percent</i>
-            {errors.taxType && (
-              <p className="input-error" id="taxType-error">
-                {errors.taxType}
-              </p>
-            )}
+          {lookupMessage && <p className={lookupClassName}>{lookupMessage}</p>}
+          <div className="invoice-grid">
+            <InputField
+              type="text"
+              placeholder="Nombre del cliente"
+              icon="person"
+              value={formData.customerName}
+              onChange={handleCustomerChange}
+              name="customerName"
+              error={errors.customerName}
+              autoComplete="name"
+            />
+            <InputField
+              type="email"
+              placeholder="Correo del cliente"
+              icon="mail"
+              value={formData.customerEmail}
+              onChange={handleCustomerChange}
+              name="customerEmail"
+              error={errors.customerEmail}
+              autoComplete="email"
+            />
           </div>
+        </div>
+        <div className="invoice-section">
+          <h3 className="invoice-section-title">Productos</h3>
+          <p className="invoice-section-subtitle">
+            Agrega cada producto incluido en la factura y define su impuesto correspondiente.
+          </p>
+          <InvoiceProductsTable
+            products={products}
+            errors={productErrors}
+            includeTaxType
+            onProductChange={handleProductChange}
+            onAddProduct={addProductRow}
+            onRemoveProduct={removeProductRow}
+          />
         </div>
         <div className="form-actions">
           <button type="button" className="button-secondary" onClick={onBack}>
@@ -1162,44 +1642,39 @@ const ElectronicInvoiceForm = ({ onBack, onSubmit }) => {
 };
 
 const GenericInvoiceForm = ({ onBack, onSubmit }) => {
-  const [formData, setFormData] = useState({
-    product: "",
-    quantity: "",
-    price: "",
-  });
-  const [errors, setErrors] = useState({});
+  const [products, setProducts] = useState([createProductRow(false)]);
+  const [productErrors, setProductErrors] = useState([{}]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    setErrors((prev) => ({ ...prev, [name]: "" }));
+  const handleProductChange = (index, field, value) => {
+    setProducts((prev) =>
+      prev.map((item, rowIndex) => (rowIndex === index ? { ...item, [field]: value } : item))
+    );
+    setProductErrors((prev) =>
+      prev.map((rowError, rowIndex) =>
+        rowIndex === index ? { ...rowError, [field]: "" } : rowError
+      )
+    );
+  };
+
+  const addProductRow = () => {
+    setProducts((prev) => [...prev, createProductRow(false)]);
+    setProductErrors((prev) => [...prev, {}]);
+  };
+
+  const removeProductRow = (index) => {
+    if (products.length === 1) {
+      return;
+    }
+    setProducts((prev) => prev.filter((_, rowIndex) => rowIndex !== index));
+    setProductErrors((prev) => prev.filter((_, rowIndex) => rowIndex !== index));
   };
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    const newErrors = {};
-
-    if (!formData.product.trim()) {
-      newErrors.product = "Describe el producto.";
-    }
-
-    const quantityValue = Number(formData.quantity);
-    if (!formData.quantity) {
-      newErrors.quantity = "Indica la cantidad.";
-    } else if (Number.isNaN(quantityValue) || quantityValue <= 0) {
-      newErrors.quantity = "La cantidad debe ser mayor a cero.";
-    }
-
-    const priceValue = Number(formData.price);
-    if (!formData.price) {
-      newErrors.price = "Indica el precio.";
-    } else if (Number.isNaN(priceValue) || priceValue <= 0) {
-      newErrors.price = "El precio debe ser mayor a cero.";
-    }
-
-    if (Object.keys(newErrors).length) {
-      setErrors(newErrors);
+    const { errors: rowErrors, hasErrors } = validateProductRows(products);
+    setProductErrors(rowErrors);
+    if (hasErrors) {
       return;
     }
 
@@ -1226,40 +1701,18 @@ const GenericInvoiceForm = ({ onBack, onSubmit }) => {
         </p>
       </header>
       <form className="invoice-form" onSubmit={handleSubmit} noValidate>
-        <div className="invoice-grid">
-          <InputField
-            type="text"
-            placeholder="Producto"
-            icon="shopping_bag"
-            value={formData.product}
-            onChange={handleChange}
-            name="product"
-            error={errors.product}
-            autoComplete="off"
-          />
-          <InputField
-            type="number"
-            placeholder="Cantidad"
-            icon="format_list_numbered"
-            value={formData.quantity}
-            onChange={handleChange}
-            name="quantity"
-            error={errors.quantity}
-            min="0"
-            step="1"
-            inputMode="numeric"
-          />
-          <InputField
-            type="number"
-            placeholder="Precio"
-            icon="attach_money"
-            value={formData.price}
-            onChange={handleChange}
-            name="price"
-            error={errors.price}
-            min="0"
-            step="0.01"
-            inputMode="decimal"
+        <div className="invoice-section">
+          <h3 className="invoice-section-title">Productos</h3>
+          <p className="invoice-section-subtitle">
+            Añade cada artículo de la venta con su cantidad y precio correspondiente.
+          </p>
+          <InvoiceProductsTable
+            products={products}
+            errors={productErrors}
+            includeTaxType={false}
+            onProductChange={handleProductChange}
+            onAddProduct={addProductRow}
+            onRemoveProduct={removeProductRow}
           />
         </div>
         <div className="form-actions">
@@ -1387,11 +1840,13 @@ const App = () => {
   };
 
   const handleViewSales = () => {
-    setDashboardFeedback("La sección de reportes estará disponible muy pronto.");
+    setDashboardFeedback("");
+    transitionTo(VIEWS.SALES, { message: "Analizando tus resultados más recientes..." });
   };
 
   const handleInventory = () => {
-    setDashboardFeedback("Estamos preparando un módulo de inventario increíble para ti.");
+    setDashboardFeedback("");
+    transitionTo(VIEWS.INVENTORY, { message: "Sincronizando niveles de inventario..." });
   };
 
   const goBackToHome = () => {
@@ -1437,6 +1892,8 @@ const App = () => {
 
     const messages = {
       [VIEWS.HOME]: "Cargando tu panel principal...",
+      [VIEWS.SALES]: "Resumiendo tu histórico de ventas...",
+      [VIEWS.INVENTORY]: "Mapeando tu inventario en segundos...",
       [VIEWS.DASHBOARDS]: "Actualizando métricas en tiempo real...",
       [VIEWS.CLIENTS]: "Cargando clientes destacados...",
       [VIEWS.TRANSACTIONS]: "Obteniendo movimientos recientes...",
@@ -1470,6 +1927,10 @@ const App = () => {
             feedback={dashboardFeedback}
           />
         );
+      case VIEWS.SALES:
+        return <SalesView />;
+      case VIEWS.INVENTORY:
+        return <InventoryView />;
       case VIEWS.DASHBOARDS:
         return <DashboardsView />;
       case VIEWS.CLIENTS:
