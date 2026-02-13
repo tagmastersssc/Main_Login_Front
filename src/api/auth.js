@@ -76,12 +76,3 @@ export async function resetPassword(code, newPassword) {
   });
   return handleResponse(response);
 }
-
-export async function findClientByTaxId(taxId) {
-  const sanitized = encodeURIComponent(taxId.trim());
-  const response = await fetch(`${API_URL}/clients/${sanitized}`, {
-    method: "GET",
-    headers: { "Content-Type": "application/json" },
-  });
-  return handleResponse(response);
-}
