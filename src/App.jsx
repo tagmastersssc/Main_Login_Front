@@ -5,6 +5,7 @@ import { login, register, requestPasswordReset, resetPassword } from "./api/auth
 import logo from "/bilailogocompleto.png";
 
 const CLIENTS_APP_URL = import.meta.env.VITE_CLIENTS_APP_URL || "http://localhost:5174";
+const WEBSITE_URL = import.meta.env.VITE_WEBSITE_URL || "http://localhost:5175";
 
 const VIEWS = {
   LOGIN: "login",
@@ -669,7 +670,7 @@ const App = () => {
   return (
     <>
       <header className="top-header">
-        <a href="/" className="header-brand">
+        <a href={WEBSITE_URL} className="header-brand" aria-label="Ir al sitio principal de BilAI">
           <img src={logo} alt="BilAI" className="header-logo" />
         </a>
       </header>
