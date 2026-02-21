@@ -1,12 +1,38 @@
-# React + Vite
+# Main_Login_Front
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Frontend de login de BilAI orientado a **SSO-only** (Google, Microsoft, Apple vía backend OIDC).
 
-Currently, two official plugins are available:
+## Variables de entorno
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Desarrollo (`.env.development`)
 
-## Expanding the ESLint configuration
+```env
+VITE_API_URL=http://localhost:8000
+VITE_WEBSITE_URL=http://localhost:5175
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### Producción (`.env`)
+
+```env
+VITE_API_URL=/api
+VITE_WEBSITE_URL=/
+```
+
+## Flujo
+
+1. Usuario hace clic en proveedor SSO.
+2. Frontend redirige a `${VITE_API_URL}/auth/sso/start?provider=...`.
+3. Backend completa OAuth/OIDC y redirige al portal de clientes con token de sesión.
+
+## Ejecutar
+
+```bash
+npm install
+npm run dev
+```
+
+## Build
+
+```bash
+npm run build
+```

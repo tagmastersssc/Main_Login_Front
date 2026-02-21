@@ -1,240 +1,94 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import SocialLogin from "./components/SocialLogin";
-import InputField from "./components/InputField";
-import { login, register } from "./api/auth";
 import logo from "/bilailogocompleto.png";
 
-const initialLoginState = { email: "", password: "" };
-const initialRegisterState = { email: "", password: "", confirmPassword: "" };
+const API_URL = (import.meta.env.VITE_API_URL || "/api").trim().replace(/\/+$/, "");
+const WEBSITE_URL = (import.meta.env.VITE_WEBSITE_URL || "/").trim();
 
-const passwordValidators = [
-  {
-    test: (value) => value.length >= 8,
-    message: "Debe tener al menos 8 caracteres.",
-  },
-  {
-    test: (value) => /[A-Z]/.test(value),
-    message: "Debe incluir una letra mayúscula.",
-  },
-  {
-    test: (value) => /[a-z]/.test(value),
-    message: "Debe incluir una letra minúscula.",
-  },
-  {
-    test: (value) => /\d/.test(value),
-    message: "Debe incluir un número.",
-  },
-  {
-    test: (value) => /[^A-Za-z0-9]/.test(value),
-    message: "Debe incluir un caracter especial.",
-  },
-];
-
-const validatePassword = (password) =>
-  passwordValidators.filter(({ test }) => !test(password)).map(({ message }) => message);
-
-const LoginForm = ({ onRegisterLinkClick, onSuccess }) => {
-  const [formData, setFormData] = useState(initialLoginState);
-  const [error, setError] = useState("");
-
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    setError("");
-  };
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setError("");
-
-    try {
-      const response = await login(formData.email.trim(), formData.password);
-      onSuccess(response.token);
-      setFormData(initialLoginState);
-    } catch (err) {
-      setError(err.message || "No se pudo iniciar sesión");
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="login-form">
-      <InputField
-        type="email"
-        placeholder="Correo electrónico"
-        icon="mail"
-        value={formData.email}
-        onChange={handleChange}
-        autoComplete="email"
-        name="email"
-      />
-      <InputField
-        type="password"
-        placeholder="Contraseña"
-        icon="lock"
-        value={formData.password}
-        onChange={handleChange}
-        autoComplete="current-password"
-        name="password"
-      />
-      <a href="#" className="forgot-password-link">
-        ¿Olvidaste tu contraseña?
-      </a>
-      <button type="submit" className="login-button">
-        Ingresar
-      </button>
-      <p className="signup-prompt">
-        ¿No tienes una cuenta?{" "}
-        <button type="button" onClick={onRegisterLinkClick} className="link-button">
-          Regístrate
-        </button>
-      </p>
-      {error && <p className="form-feedback">{error}</p>}
-    </form>
-  );
+const buildApiUrl = (path) => {
+  const baseOrigin =
+    typeof window !== "undefined" && window.location?.origin
+      ? window.location.origin
+      : "https://example.com";
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return new URL(`${API_URL}${normalizedPath}`, baseOrigin).toString();
 };
 
-const RegisterForm = ({ onLoginLinkClick }) => {
-  const [formData, setFormData] = useState(initialRegisterState);
-  const [errors, setErrors] = useState({});
-  const [feedback, setFeedback] = useState("");
+const consumeUrlError = () => {
+  if (typeof window === "undefined") {
+    return "";
+  }
 
-  const passwordErrorMessages = useMemo(
-    () => validatePassword(formData.password),
-    [formData.password]
-  );
+  const searchParams = new URLSearchParams(window.location.search);
+  const rawError = searchParams.get("error");
+  if (!rawError) {
+    return "";
+  }
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    setErrors((prev) => ({ ...prev, [name]: "" }));
-    setFeedback("");
-  };
+  searchParams.delete("error");
+  const cleanQuery = searchParams.toString();
+  const cleanUrl = `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ""}${window.location.hash}`;
+  window.history.replaceState({}, document.title, cleanUrl);
+  return rawError;
+};
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    const newErrors = {};
-    setFeedback("");
+const LoaderOverlay = ({ message }) => (
+  <div className="loading-overlay" role="status" aria-live="polite">
+    <div className="loading-spinner" />
+    <p>{message}</p>
+  </div>
+);
 
-    const email = formData.email.trim();
-
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!email) {
-      newErrors.email = "El correo es obligatorio.";
-    } else if (!emailPattern.test(email)) {
-      newErrors.email = "Ingresa un correo electrónico válido.";
-    }
-
-    if (passwordErrorMessages.length) {
-      newErrors.password = passwordErrorMessages.join(" ");
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = "Las contraseñas no coinciden.";
-    }
-
-    if (Object.keys(newErrors).length) {
-      setErrors(newErrors);
-      return;
-    }
-
-    try {
-      await register(email, formData.password);
-      onLoginLinkClick("Cuenta creada. Inicia sesión para continuar.");
-      setFormData(initialRegisterState);
-    } catch (error) {
-      setFeedback(error.message || "No pudimos crear tu cuenta.");
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="login-form">
-      <InputField
-        type="email"
-        placeholder="Correo electrónico"
-        icon="mail"
-        value={formData.email}
-        onChange={handleChange}
-        autoComplete="email"
-        error={errors.email}
-        name="email"
-      />
-      <InputField
-        type="password"
-        placeholder="Contraseña"
-        icon="lock"
-        value={formData.password}
-        onChange={handleChange}
-        autoComplete="new-password"
-        error={errors.password}
-        name="password"
-      />
-      <InputField
-        type="password"
-        placeholder="Confirma tu contraseña"
-        icon="lock"
-        value={formData.confirmPassword}
-        onChange={handleChange}
-        autoComplete="new-password"
-        error={errors.confirmPassword}
-        name="confirmPassword"
-      />
-      <button type="submit" className="register-button">
-        Registrarse
-      </button>
-      <p className="login-prompt">
-        ¿Ya tienes cuenta?{" "}
-        <button type="button" onClick={() => onLoginLinkClick("")} className="link-button">
-          Inicia sesión
-        </button>
-      </p>
-      {feedback && <p className="form-feedback">{feedback}</p>}
-    </form>
-  );
+const providerLabels = {
+  google: "Google",
+  microsoft: "Microsoft",
+  apple: "Apple",
 };
 
 const App = () => {
-  const [view, setView] = useState("login");
-  const [loginMessage, setLoginMessage] = useState("");
+  const [feedback, setFeedback] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("Redirigiendo al proveedor de identidad...");
 
-  const goToLogin = (message = "") => {
-    setView("login");
-    setLoginMessage(typeof message === "string" ? message : "");
+  useEffect(() => {
+    const message = consumeUrlError();
+    if (message) {
+      setFeedback(message);
+    }
+  }, []);
+
+  const handleSsoStart = (provider) => {
+    const providerLabel = providerLabels[provider] || "SSO";
+    setLoadingMessage(`Conectando con ${providerLabel}...`);
+    setFeedback("");
+    setIsLoading(true);
+
+    const url = new URL(buildApiUrl("/auth/sso/start"));
+    url.searchParams.set("provider", provider);
+    window.location.assign(url.toString());
   };
 
   return (
     <>
       <header className="top-header">
-        <a href="/" className="header-brand">
+        <a href={WEBSITE_URL} className="header-brand" aria-label="Ir al sitio principal de BilAI">
           <img src={logo} alt="BilAI" className="header-logo" />
         </a>
       </header>
+
       <main className="page-wrapper">
         <div className="login-container">
-          <h2 className="form-title">{view === "login" ? "Iniciar sesión" : "Crea tu cuenta"}</h2>
-          {view === "login" && (
-            <>
-              <SocialLogin />
-              <p className="separator">
-                <span>o</span>
-              </p>
-              {loginMessage && <p className="form-feedback success">{loginMessage}</p>}
-              <LoginForm
-                onRegisterLinkClick={() => {
-                  setView("register");
-                  setLoginMessage("");
-                }}
-                onSuccess={(token) => {
-                  localStorage.setItem("token", token);
-                  setLoginMessage("Sesión iniciada correctamente.");
-                }}
-              />
-            </>
-          )}
-          {view === "register" && (
-            <RegisterForm onLoginLinkClick={goToLogin} />
-          )}
+          <h2 className="form-title">Iniciar sesión</h2>
+          <p className="form-intro">
+            Accede de forma segura con Google, Microsoft o Apple. Solo los correos autorizados en
+            BilAI pueden ingresar.
+          </p>
+
+          <SocialLogin disabled={isLoading} onSelectProvider={handleSsoStart} />
+
+          {feedback && <p className="form-feedback">{feedback}</p>}
         </div>
+
         <footer className="disclaimer-wrapper" aria-label="Aviso legal">
           <p className="disclaimer">
             Al ingresar aceptas nuestros
@@ -252,6 +106,8 @@ const App = () => {
           </p>
         </footer>
       </main>
+
+      {isLoading && <LoaderOverlay message={loadingMessage} />}
     </>
   );
 };
