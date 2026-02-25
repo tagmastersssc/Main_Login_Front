@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import SocialLogin from "./components/SocialLogin";
 import logo from "/bilailogocompleto.png";
-import { getRuntimeEnv } from "./runtimeConfig";
 
-const API_URL = getRuntimeEnv("VITE_API_URL", "/api").replace(/\/+$/, "");
-const WEBSITE_URL = getRuntimeEnv("VITE_WEBSITE_URL", "/");
+const API_URL = (import.meta.env.VITE_API_URL || "/api").trim().replace(/\/+$/, "");
+const WEBSITE_URL = (import.meta.env.VITE_WEBSITE_URL || "/").trim();
 const backendUrl = window.__APP_CONFIG__.VITE_APP_BACKEND_URL
 const clientId   = window.__APP_CONFIG__.VITE_APP_CLIENT_ID
 
