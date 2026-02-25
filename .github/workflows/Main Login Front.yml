@@ -27,6 +27,9 @@ jobs:
         npm install
         npm run build
         npm run test --if-present
+      env:
+        VITE_APP_BACKEND_URL: "HAHA"
+
     - name: Upload artifact for deployment job
       uses: actions/upload-artifact@v4
       with:
