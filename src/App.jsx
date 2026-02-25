@@ -6,6 +6,7 @@ import { getRuntimeEnv } from "./runtimeConfig";
 const API_URL = getRuntimeEnv("VITE_API_URL", "/api").replace(/\/+$/, "");
 const WEBSITE_URL = getRuntimeEnv("VITE_WEBSITE_URL", "/");
 
+
 const buildApiUrl = (path) => {
   const baseOrigin =
     typeof window !== "undefined" && window.location?.origin
