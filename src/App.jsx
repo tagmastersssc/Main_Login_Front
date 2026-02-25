@@ -2,8 +2,20 @@ import { useEffect, useState } from "react";
 import SocialLogin from "./components/SocialLogin";
 import logo from "/bilailogocompleto.png";
 
-const API_URL = (import.meta.env.VITE_API_URL || "/api").trim().replace(/\/+$/, "");
-const WEBSITE_URL = (import.meta.env.VITE_WEBSITE_URL || "/").trim();
+const sanitizeEnvValue = (value, fallback) => {
+  const raw = typeof value === "string" ? value.trim() : "";
+  const normalized = raw || fallback;
+  if (
+    (normalized.startsWith('"') && normalized.endsWith('"')) ||
+    (normalized.startsWith("'") && normalized.endsWith("'"))
+  ) {
+    return normalized.slice(1, -1).trim();
+  }
+  return normalized;
+};
+
+const API_URL = sanitizeEnvValue(import.meta.env.VITE_API_URL, "/api").replace(/\/+$/, "");
+const WEBSITE_URL = sanitizeEnvValue(import.meta.env.VITE_WEBSITE_URL, "/");
 
 
 const buildApiUrl = (path) => {
