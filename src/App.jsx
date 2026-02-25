@@ -5,6 +5,7 @@ import { getRuntimeEnv } from "./runtimeConfig";
 
 const API_URL = getRuntimeEnv("VITE_API_URL", "/api").replace(/\/+$/, "");
 const WEBSITE_URL = getRuntimeEnv("VITE_WEBSITE_URL", "/");
+const APP_TENANT_ID = getRuntimeEnv("VITE_APP_TENANT_ID");
 
 
 const buildApiUrl = (path) => {
@@ -80,7 +81,7 @@ const App = () => {
 
       <main className="page-wrapper">
         <div className="login-container">
-          <h2 className="form-title">Iniciar sesión</h2>
+          <h2 className="form-title">Iniciar sesión {APP_TENANT_ID}</h2>
           <p className="form-intro">
             Accede de forma segura con Google, Microsoft o Apple. Solo los correos autorizados en
             BilAI pueden ingresar.
