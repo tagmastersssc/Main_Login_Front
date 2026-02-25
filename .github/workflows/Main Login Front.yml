@@ -38,11 +38,7 @@ jobs:
       uses: azure/CLI@v1
       with:
         inlineScript: |
-          echo secret=$(az keyvault secret show --vault-name kv-login-uat-eastus --name VITE-APP-BACKEND-URL --query value) >> $GITHUB_ENV
-    - name: Use the value
-      run: |
-        echo "${{ env.secret }}"
-
+          echo VITE_APP_BACKEND_URL=$(az keyvault secret show --vault-name kv-login-${{github.ref_name}}-eastus --name VITE-APP-BACKEND-URL --query value) >> $GITHUB_ENV
 
     - name: npm install, build, and test
       run: |
@@ -50,7 +46,7 @@ jobs:
         npm run build
         npm run test --if-present
       env:
-        VITE_APP_BACKEND_URL: "HAHA"
+        VITE_APP_BACKEND_URL: "${{ env.VITE_APP_BACKEND_URL }}"
 
     - name: Upload artifact for deployment job
       uses: actions/upload-artifact@v4
