@@ -1,0 +1,4 @@
+window.__APP_CONFIG__ = {
+  VITE_APP_BACKEND_URL: "",
+  VITE_APP_CLIENT_ID: ""
+}
