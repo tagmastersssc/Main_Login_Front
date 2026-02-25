@@ -4,6 +4,7 @@ import logo from "/bilailogocompleto.png";
 
 const API_URL = (import.meta.env.VITE_API_URL || "/api").trim().replace(/\/+$/, "");
 const WEBSITE_URL = (import.meta.env.VITE_WEBSITE_URL || "/").trim();
+const REACT_APP_TENANT_ID = import.meta.env.VITE_APP_TENANT_ID;
 
 const buildApiUrl = (path) => {
   const baseOrigin =
@@ -78,7 +79,7 @@ const App = () => {
 
       <main className="page-wrapper">
         <div className="login-container">
-          <h2 className="form-title">Iniciar sesión</h2>
+          <h2 className="form-title">Iniciar sesión{REACT_APP_TENANT_ID}</h2>
           <p className="form-intro">
             Accede de forma segura con Google, Microsoft o Apple. Solo los correos autorizados en
             BilAI pueden ingresar.
