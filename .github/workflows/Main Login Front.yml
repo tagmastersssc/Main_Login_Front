@@ -40,6 +40,7 @@ jobs:
         inlineScript: |
           echo VITE_API_URL=$(az keyvault secret show --vault-name kv-login-${{github.ref_name}}-eastus --name VITE-API-URL --query value) >> $GITHUB_ENV
           echo VITE_WEBSITE_URL=$(az keyvault secret show --vault-name kv-login-${{github.ref_name}}-eastus --name VITE-WEBSITE-URL --query value) >> $GITHUB_ENV
+          echo VITE_APP_TENANT_ID=$(az keyvault secret show --vault-name kv-login-${{github.ref_name}}-eastus --name VITE-APP-TENANT-ID --query value) >> $GITHUB_ENV
 
     - name: npm install, build, and test
       run: |
@@ -49,6 +50,7 @@ jobs:
       env:
         VITE_API_URL: "${{ env.VITE_API_URL }}"
         VITE_WEBSITE_URL: "${{ env.VITE_WEBSITE_URL }}"
+        VITE_APP_TENANT_ID: "${{ env.VITE_APP_TENANT_ID }}"
 
 
     - name: Upload artifact for deployment job
