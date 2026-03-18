@@ -48,9 +48,9 @@ jobs:
         npm run build
         npm run test --if-present
       env:
-        VITE_API_URL: "${{ env.VITE_API_URL }}"
-        VITE_WEBSITE_URL: "${{ env.VITE_WEBSITE_URL }}"
-        VITE_APP_TENANT_ID: "${{ env.VITE_APP_TENANT_ID }}"
+        VITE_API_URL: ${{ env.VITE_API_URL }}
+        VITE_WEBSITE_URL: ${{ env.VITE_WEBSITE_URL }}
+        VITE_APP_TENANT_ID: ${{ env.VITE_APP_TENANT_ID }}
 
 
     - name: Upload artifact for deployment job
