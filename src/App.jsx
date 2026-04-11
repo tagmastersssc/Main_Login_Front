@@ -16,6 +16,7 @@ const sanitizeEnvValue = (value, fallback) => {
 
 const API_URL = sanitizeEnvValue(import.meta.env.VITE_API_URL, "/api").replace(/\/+$/, "");
 const WEBSITE_URL = sanitizeEnvValue(import.meta.env.VITE_WEBSITE_URL, "/");
+const APP_TENANT_ID = sanitizeEnvValue(import.meta.env.VITE_APP_TENANT_ID, "");
 
 
 const buildApiUrl = (path) => {
@@ -43,6 +44,16 @@ const consumeUrlError = () => {
   const cleanUrl = `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ""}${window.location.hash}`;
   window.history.replaceState({}, document.title, cleanUrl);
   return rawError;
+};
+
+const resolveTenantId = () => {
+  if (typeof window === "undefined") {
+    return APP_TENANT_ID;
+  }
+
+  const searchParams = new URLSearchParams(window.location.search);
+  const queryTenant = (searchParams.get("tenant") || "").trim();
+  return queryTenant || APP_TENANT_ID;
 };
 
 const LoaderOverlay = ({ message }) => (
@@ -78,6 +89,10 @@ const App = () => {
 
     const url = new URL(buildApiUrl("/auth/sso/start"));
     url.searchParams.set("provider", provider);
+    const tenantId = resolveTenantId();
+    if (tenantId) {
+      url.searchParams.set("tenant", tenantId);
+    }
     window.location.assign(url.toString());
   };
 
